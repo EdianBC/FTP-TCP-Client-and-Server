@@ -2,20 +2,10 @@ import socket
 import re
 
 class FTPClient:
-
     def __init__(self, host, port=21):
         self.host = host
         self.port = port
         self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    def quit(self):
-        """Envía el comando QUIT para cerrar la sesión y cierra el socket."""
-        try:
-            response = self.send_command('QUIT')
-            self.control_socket.close()
-            return response
-        except Exception as e:
-            print(f"Error al cerrar la conexión: {e}")
 
     def connect(self):
         """Conecta al servidor FTP."""
@@ -54,7 +44,8 @@ class FTPClient:
             data_socket.connect((ip_address, port))
             return data_socket
         else:
-            raise Exception("PASV mode setup failed.")
+            print("PASV mode setup failed.")
+            return None
 
     def list_files(self, directory="."):
         """Lista los archivos en el directorio especificado."""
@@ -100,26 +91,25 @@ class FTPClient:
 
     def store_file(self, local_filename, filename):
         """Sube un archivo al servidor FTP."""
-        try:
-            data_socket = self.pasv_mode()
-        except Exception as e:
-            print(e)
-            return "Fallo al establecer la conexión de datos en modo PASV."
-        
+        data_socket = self.pasv_mode()
         self.send_command(f'STOR {filename}')
         with open(local_filename, 'rb') as file:
-            data = file.read(1024)
-            while data:
-                data_socket.send(data)
+            while True:
                 data = file.read(1024)
+                if not data:
+                    break
+                data_socket.send(data)
         data_socket.close()
         return "Archivo subido exitosamente."
 
+    def quit(self):
+        """Cierra la sesión y la conexión con el servidor FTP."""
+        return self.send_command('QUIT')
 
 if __name__ == "__main__":
     ftp = FTPClient('ftp.dlptest.com')
     print(ftp.connect())
     print(ftp.login('dlpuser', 'rNrKYTX9g7z3RgJRmxWuGHbeu'))
-    ftp.store_file("README.md","README.md")
+    print(ftp.store_file('README.md', 'LeemeHDP.md'))
     print(ftp.list_files())
     print(ftp.quit())
