@@ -61,10 +61,8 @@ class FTPClient:
                 if not data_part:
                     break
                 data_response += data_part
-            print("Respuesta del servidor para LIST:", data_response)
             data_socket.close()
             control_response = self.read_response()
-            print("Respuesta de control después de LIST:", control_response)
             return data_response
         except Exception as e:
             print(f"Error al listar archivos: {e}")
@@ -82,8 +80,11 @@ class FTPClient:
         return self.send_command(f'RMD {dirname}')
 
     def delete_file(self, filename):
-        """Elimina un archivo en el servidor FTP."""
-        return self.send_command(f'DELE {filename}')
+        """Intenta eliminar un archivo y maneja la respuesta, incluidos los errores."""
+        response = self.send_command(f'DELE {filename}')
+        if "550" in response:  # Suponiendo 550 como código de error para archivo no encontrado
+            print("Error: El archivo no existe o no se pudo eliminar.")
+        return response
 
     def rename_file(self, from_name, to_name):
         """Renombra un archivo en el servidor FTP."""
@@ -124,6 +125,37 @@ if __name__ == "__main__":
     ftp = FTPClient('ftp.dlptest.com')
     print(ftp.connect())
     print(ftp.login('dlpuser', 'rNrKYTX9g7z3RgJRmxWuGHbeu'))
-    # print(ftp.store_file('README.md', 'LeemeHDPc.md'))
-    print(ftp.list_files())
-    print(ftp.quit())
+
+    while True:
+        try:
+            user_input = input("ftp>> ")
+
+            command_parts = user_input.split(" ")
+            command = command_parts[0]
+            args = command_parts[1:]
+
+            print(command)
+            if command == 'ls':
+                print(ftp.list_files(*args))
+            elif command == 'cd':
+                ftp.change_directory(*args)
+            elif command == 'mkdir':
+                ftp.make_directory(*args)
+            elif command == 'rd':
+                ftp.remove_directory(*args)
+            elif command == 'rf':
+                ftp.delete_file(*args)
+            elif command == 'rename':
+                ftp.rename_file(*args)
+            elif command == 'dow':
+                ftp.retrieve_file(*args)
+            elif command == 'upl':
+                ftp.store_file(*args)
+            elif command == 'quit':
+                print(ftp.quit())
+                break 
+            else:
+                print("Comando no reconocido. Por favor, inténtelo de nuevo.")
+
+        except Exception as e:
+            print(f"Error: {e}")
