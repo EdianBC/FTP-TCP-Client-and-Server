@@ -6,6 +6,7 @@ class FTPClient:
         self.host = host
         self.port = port
         self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.control_socket.settimeout(3)  # Establece un timeout para las operaciones de socket
 
     def connect(self):
         """Conecta al servidor FTP."""
@@ -18,13 +19,13 @@ class FTPClient:
         while True:
             part = self.control_socket.recv(1024).decode()
             response += part
-            if len(part) < 1024:
+            if response.endswith('\r\n') or len(part) < 1024:  
                 break
         return response
 
     def send_command(self, command):
         """Envía un comando al servidor FTP y devuelve la respuesta."""
-        self.control_socket.send(f"{command}\r\n".encode())
+        self.control_socket.sendall(f"{command}\r\n".encode())  
         return self.read_response()
 
     def login(self, username='anonymous', password='anonymous@'):
@@ -80,11 +81,8 @@ class FTPClient:
         return self.send_command(f'RMD {dirname}')
 
     def delete_file(self, filename):
-        """Intenta eliminar un archivo y maneja la respuesta, incluidos los errores."""
-        response = self.send_command(f'DELE {filename}')
-        if "550" in response:  # Suponiendo 550 como código de error para archivo no encontrado
-            print("Error: El archivo no existe o no se pudo eliminar.")
-        return response
+        """Intenta eliminar un archivo."""
+        return self.send_command(f'DELE {filename}')
 
     def rename_file(self, from_name, to_name):
         """Renombra un archivo en el servidor FTP."""
@@ -94,6 +92,8 @@ class FTPClient:
     def retrieve_file(self, filename, local_filename):
         """Descarga un archivo del servidor FTP."""
         data_socket = self.pasv_mode()
+        if not data_socket:
+            return "Error estableciendo modo PASV."
         self.send_command(f'RETR {filename}')
         with open(local_filename, 'wb') as file:
             while True:
@@ -107,6 +107,8 @@ class FTPClient:
     def store_file(self, local_filename, filename):
         """Sube un archivo al servidor FTP."""
         data_socket = self.pasv_mode()
+        if not data_socket:
+            return "Error estableciendo modo PASV."
         self.send_command(f'STOR {filename}')
         with open(local_filename, 'rb') as file:
             while True:
@@ -116,10 +118,16 @@ class FTPClient:
                 data_socket.send(data)
         data_socket.close()
         return "Archivo subido exitosamente."
-
+    
+    def print_working_directory(self):
+        """Imprime el directorio de trabajo actual en el servidor FTP."""
+        return self.send_command('PWD')
+    
     def quit(self):
         """Cierra la sesión y la conexión con el servidor FTP."""
-        return self.send_command('QUIT')
+        response = self.send_command('QUIT')
+        self.control_socket.close()
+        return response
 
 if __name__ == "__main__":
     ftp = FTPClient('ftp.dlptest.com')
@@ -130,32 +138,32 @@ if __name__ == "__main__":
         try:
             user_input = input("ftp>> ")
 
-            command_parts = user_input.split(" ")
-            command = command_parts[0]
+            command_parts = user_input.strip().split(" ")
+            command = command_parts[0].lower()
             args = command_parts[1:]
 
-            print(command)
             if command == 'ls':
                 print(ftp.list_files(*args))
             elif command == 'cd':
-                ftp.change_directory(*args)
+                print(ftp.change_directory(*args))
+            elif command == 'pwd':
+                print(ftp.print_working_directory())
             elif command == 'mkdir':
-                ftp.make_directory(*args)
+                print(ftp.make_directory(*args))
             elif command == 'rd':
-                ftp.remove_directory(*args)
+                print(ftp.remove_directory(*args))
             elif command == 'rf':
-                ftp.delete_file(*args)
+                print(ftp.delete_file(*args))
             elif command == 'rename':
-                ftp.rename_file(*args)
+                print(ftp.rename_file(*args))
             elif command == 'dow':
-                ftp.retrieve_file(*args)
+                print(ftp.retrieve_file(*args))
             elif command == 'upl':
-                ftp.store_file(*args)
+                print(ftp.store_file(*args))
             elif command == 'quit':
                 print(ftp.quit())
-                break 
+                break
             else:
                 print("Comando no reconocido. Por favor, inténtelo de nuevo.")
-
         except Exception as e:
             print(f"Error: {e}")
