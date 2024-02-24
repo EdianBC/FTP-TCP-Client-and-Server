@@ -6,7 +6,7 @@ class FTPClient:
         self.host = host
         self.port = port
         self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.control_socket.settimeout(3)  
+        self.control_socket.settimeout(3)
 
     def connect(self):
         """Conecta al servidor FTP."""
@@ -19,13 +19,13 @@ class FTPClient:
         while True:
             part = self.control_socket.recv(1024).decode()
             response += part
-            if response.endswith('\r\n') or len(part) < 1024:  
+            if response.endswith('\r\n') or len(part) < 1024:
                 break
         return response
 
     def send_command(self, command):
         """Envía un comando al servidor FTP y devuelve la respuesta."""
-        self.control_socket.sendall(f"{command}\r\n".encode())  
+        self.control_socket.sendall(f"{command}\r\n".encode())
         return self.read_response()
 
     def login(self, username='anonymous', password='anonymous@'):
@@ -40,14 +40,16 @@ class FTPClient:
         ip_port_match = ip_port_pattern.search(response)
         if ip_port_match:
             ip_address = '.'.join(ip_port_match.groups()[:4])
-            port = (int(ip_port_match.group(5)) << 8) + int(ip_port_match.group(6))
+            port = (int(ip_port_match.group(5)) << 8) + \
+                int(ip_port_match.group(6))
             data_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             data_socket.connect((ip_address, port))
             return data_socket
         else:
             print("PASV mode setup failed.")
             return None
-    def list_files(self, directory=".",verbose=False):
+
+    def list_files(self, directory=".", verbose=False):
         """Lista los archivos en el directorio especificado, devolviendo una lista con la distinción entre archivos y carpetas."""
         try:
             data_socket = self.pasv_mode()
@@ -62,31 +64,30 @@ class FTPClient:
                     break
                 data_response += data_part
             data_socket.close()
-            self.read_response() 
-            
+            self.read_response()
+
             entries = data_response.strip().split('\r\n')
             result = []
             for entry in entries:
-                parts = entry.split(maxsplit=8) 
-                if len(parts) > 8: 
+                parts = entry.split(maxsplit=8)
+                if len(parts) > 8:
                     entry_type = 'directory' if parts[0][0] == 'd' else 'file'
-                    name = parts[-1]  
+                    name = parts[-1]
                     result.append({'type': entry_type, 'name': name})
-            
+
             if verbose:
-                ret=""
+                ret = ""
                 for entry in entries:
-                    parts = entry.split(maxsplit=8)  
+                    parts = entry.split(maxsplit=8)
                     if len(parts) > 8:
                         entry_type = 'directory' if parts[0][0] == 'd' else 'file'
-                        name = parts[-1]  
-                        ret+=name
-                        ret+='\n'
+                        name = parts[-1]
+                        ret += name
+                        ret += '\n'
                 return ret
             return result
         except Exception as e:
             print(f"Error al listar archivos: {e}")
-
 
     def change_directory(self, path):
         """Cambia el directorio actual en el servidor FTP."""
@@ -138,16 +139,17 @@ class FTPClient:
                 data_socket.send(data)
         data_socket.close()
         return "Archivo subido exitosamente."
-    
+
     def print_working_directory(self):
         """Imprime el directorio de trabajo actual en el servidor FTP."""
         return self.send_command('PWD')
-    
+
     def quit(self):
         """Cierra la sesión y la conexión con el servidor FTP."""
         response = self.send_command('QUIT')
         self.control_socket.close()
         return response
+
 
 if __name__ == "__main__":
     ftp = FTPClient('test.rebex.net')
