@@ -49,11 +49,25 @@ class FTPClient:
 
     def list_files(self, directory="."):
         """Lista los archivos en el directorio especificado."""
-        data_socket = self.pasv_mode()
-        self.send_command(f'LIST {directory}')
-        files = data_socket.recv(4096).decode()
-        data_socket.close()
-        return files
+        try:
+            data_socket = self.pasv_mode()
+            if data_socket is None:
+                print("No se pudo establecer una conexión de datos.")
+                return
+            self.send_command(f'LIST {directory}')
+            data_response = ""
+            while True:
+                data_part = data_socket.recv(4096).decode()
+                if not data_part:
+                    break
+                data_response += data_part
+            print("Respuesta del servidor para LIST:", data_response)
+            data_socket.close()
+            control_response = self.read_response()
+            print("Respuesta de control después de LIST:", control_response)
+            return data_response
+        except Exception as e:
+            print(f"Error al listar archivos: {e}")
 
     def change_directory(self, path):
         """Cambia el directorio actual en el servidor FTP."""
@@ -110,6 +124,6 @@ if __name__ == "__main__":
     ftp = FTPClient('ftp.dlptest.com')
     print(ftp.connect())
     print(ftp.login('dlpuser', 'rNrKYTX9g7z3RgJRmxWuGHbeu'))
-    print(ftp.store_file('README.md', 'LeemeHDP.md'))
+    # print(ftp.store_file('README.md', 'LeemeHDPc.md'))
     print(ftp.list_files())
     print(ftp.quit())
