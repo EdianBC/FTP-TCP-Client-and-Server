@@ -152,9 +152,9 @@ class FTPClient:
 
 
 if __name__ == "__main__":
-    ftp = FTPClient('test.rebex.net')
+    ftp = FTPClient('127.0.0.1')
     print(ftp.connect())
-    print(ftp.login('demo', 'password'))
+    print(ftp.login('user', 'password'))
 
     while True:
         try:
