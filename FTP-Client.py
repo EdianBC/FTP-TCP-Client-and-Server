@@ -49,7 +49,7 @@ class FTPClient:
             print("PASV mode setup failed.")
             return None
 
-    def list_files(self, directory=".", verbose=False):
+    def list_files(self, directory="."):
         """Lista los archivos en el directorio especificado, devolviendo una lista con la distinción entre archivos y carpetas."""
         try:
             data_socket = self.pasv_mode()
@@ -66,26 +66,8 @@ class FTPClient:
             data_socket.close()
             self.read_response()
 
-            entries = data_response.strip().split('\r\n')
-            result = []
-            for entry in entries:
-                parts = entry.split(maxsplit=8)
-                if len(parts) > 8:
-                    entry_type = 'directory' if parts[0][0] == 'd' else 'file'
-                    name = parts[-1]
-                    result.append({'type': entry_type, 'name': name})
-
-            if verbose:
-                ret = ""
-                for entry in entries:
-                    parts = entry.split(maxsplit=8)
-                    if len(parts) > 8:
-                        entry_type = 'directory' if parts[0][0] == 'd' else 'file'
-                        name = parts[-1]
-                        ret += name
-                        ret += '\n'
-                return ret
-            return result
+            return data_response
+    
         except Exception as e:
             print(f"Error al listar archivos: {e}")
 
@@ -154,7 +136,15 @@ class FTPClient:
 if __name__ == "__main__":
     ftp = FTPClient('127.0.0.1')
     print(ftp.connect())
-    print(ftp.login('user', 'password'))
+    print(ftp.login('user1', 'password1'))
+
+    # ftp = FTPClient('ftp.dlptest.com')
+    # print(ftp.connect())
+    # print(ftp.login('dlpuser', 'rNrKYTX9g7z3RgJRmxWuGHbeu'))
+
+    # ftp = FTPClient('test.rebex.net')
+    # print(ftp.connect())
+    # print(ftp.login('demo', 'password'))
 
     while True:
         try:
