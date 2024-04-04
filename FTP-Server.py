@@ -163,10 +163,16 @@ class FTPServer:
                     filename = data.split()[1]
                     file_path = os.path.abspath(os.path.join(current_dir, filename))
 
-                    try:
+                    if not os.path.exists(file_path):
+                        #conn.sendall(b'550 Failed to retrieve file.\r\n')
+                        #conn.sendall(b'550 Failed to retrieve file.\r\n')
+                        print(f"Error: File '{file_path}' not found")
+                        continue
+                    
+                    try:  
                         conn.sendall(b'150 File status okay; about to open data connection.\r\n')
                         data_conn, _ = self.data_socket.accept()
-                        
+
                         with open(file_path, 'rb') as file:
                             while True:
                                 down_data = file.read(1024)
@@ -177,15 +183,11 @@ class FTPServer:
                         data_conn.close()
                         conn.sendall(b'226 Transfer complete.\r\n')
 
-                    except FileNotFoundError:
-                        conn.sendall(b'550 File not found.\r\n')
-
                     except Exception as e:
                         conn.sendall(b'550 Failed to retrieve file.\r\n')
                         print(f'Error retrieving file: {e}')
-                    
-                    if data_conn:
-                        data_conn.close()
+                        if data_conn:
+                            data_conn.close()
                         
 
 
@@ -196,6 +198,7 @@ class FTPServer:
                     try:
                         conn.sendall(b'150 File status okay; about to open data connection.\r\n')
                         data_conn, _ = self.data_socket.accept()
+
                         with open(file_path, 'wb') as file:
                             while True:
                                 up_data = data_conn.recv(1024)
@@ -209,9 +212,9 @@ class FTPServer:
                     except Exception as e:
                         conn.sendall(b'550 Failed to store file.\r\n')
                         print(f'Error storing file: {e}')
+                        if data_conn:
+                            data_conn.close()
                     
-                    if data_conn:
-                        data_conn.close()
 
 
                 elif command == 'QUIT':
