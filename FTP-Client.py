@@ -1,6 +1,7 @@
 import socket
 import re
 import os
+from termcolor import colored as col
 
 class FTPClient:
     def __init__(self, host, port=21):
@@ -157,7 +158,7 @@ if __name__ == "__main__":
 
     while True:
         try:
-            user_input = input("ftp>> ")
+            user_input = input(col("ftp>> ","blue"))
 
             command_parts = user_input.strip().split(" ")
             command = command_parts[0].lower()
@@ -185,6 +186,6 @@ if __name__ == "__main__":
                 print(ftp.quit(*args))
                 break
             else:
-                print("Comando no reconocido. Por favor, inténtelo de nuevo.")
+                print(col("Comando no reconocido. Por favor, inténtelo de nuevo.","red"))
         except Exception as e:
-            print(f"Error: {e}")
+            print(col(f"Error: {e}","red"))
