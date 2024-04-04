@@ -105,7 +105,6 @@ class FTPClient:
                     break
                 file.write(data)
         data_socket.close()
-        #print(self.read_response())
         return self.read_response()
 
     def store_file(self, local_filename, filename):
@@ -114,21 +113,15 @@ class FTPClient:
         if not data_socket:
             return "Error estableciendo modo PASV."
         self.send_command(f'STOR {filename}')
-        print('1')
         with open(local_filename, 'rb') as file:
             while True:
-                print('2')
                 data = file.read(1024)
-                print('3')
                 print(data)
                 if not data:
                     break
-                print('4')
                 data_socket.sendall(data)
-                print('5')
-
+        
         data_socket.close()
-        print('6')
         return self.read_response()
 
     def print_working_directory(self):

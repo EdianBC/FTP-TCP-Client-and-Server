@@ -9,7 +9,7 @@ class FTPServer:
         self.port = port
         self.data_port = 0
         
-        self.users = {'user1': 'password1'}  # Añade tus usuarios y contraseñas aquí
+        self.users = {'user1': 'password1'}  
         
         self.storage_folder = 'FTP_Storage'
         self.root_dir = os.path.join(os.getcwd(), self.storage_folder)
@@ -84,7 +84,6 @@ class FTPServer:
                     except Exception as e:
                         conn.sendall(f'550 Failed to list directory: {e}\r\n'.encode())
                         print(f'Error listing directory: {e}')
-                        # Cierra la conexión de datos en caso de error
                         if data_conn:
                             data_conn.close()
 
@@ -121,7 +120,6 @@ class FTPServer:
                         os.rmdir(target_dir)
                         conn.sendall(b'250 Directory deleted successfully.\r\n')
                     except Exception as e:
-                        # Enviar un mensaje de error si no se pudo eliminar el directorio
                         conn.sendall(b'550 Failed to delete directory.\r\n')
                         print(f'Error deleting directory: {e}')
 
@@ -143,7 +141,6 @@ class FTPServer:
 
                     conn.sendall(b'350 Ready for RNTO.\r\n')
 
-                    # Espera el comando RNTO del cliente
                     data = conn.recv(1024).decode()
                     if not data:
                         conn.sendall(b'500 Syntax error, command unrecognized.\r\n')
