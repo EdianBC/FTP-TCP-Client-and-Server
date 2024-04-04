@@ -64,7 +64,7 @@ class FTPClient:
                     break
                 data_response += data_part
             data_socket.close()
-            self.read_response()
+            print(self.read_response())
 
             return data_response
     
@@ -105,7 +105,8 @@ class FTPClient:
                     break
                 file.write(data)
         data_socket.close()
-        return "Archivo descargado exitosamente."
+        #print(self.read_response())
+        return self.read_response()
 
     def store_file(self, local_filename, filename):
         """Sube un archivo al servidor FTP."""
@@ -113,14 +114,22 @@ class FTPClient:
         if not data_socket:
             return "Error estableciendo modo PASV."
         self.send_command(f'STOR {filename}')
+        print('1')
         with open(local_filename, 'rb') as file:
             while True:
+                print('2')
                 data = file.read(1024)
+                print('3')
+                print(data)
                 if not data:
                     break
-                data_socket.send(data)
+                print('4')
+                data_socket.sendall(data)
+                print('5')
+
         data_socket.close()
-        return "Archivo subido exitosamente."
+        print('6')
+        return self.read_response()
 
     def print_working_directory(self):
         """Imprime el directorio de trabajo actual en el servidor FTP."""
