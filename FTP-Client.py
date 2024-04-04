@@ -1,5 +1,6 @@
 import socket
 import re
+import os
 
 class FTPClient:
     def __init__(self, host, port=21):
@@ -98,6 +99,7 @@ class FTPClient:
         if not data_socket:
             return "Error estableciendo modo PASV."
         self.send_command(f'RETR {filename}')
+        #self.read_response()
         with open(local_filename, 'wb') as file:
             while True:
                 data = data_socket.recv(1024)
@@ -109,14 +111,19 @@ class FTPClient:
 
     def store_file(self, local_filename, filename):
         """Sube un archivo al servidor FTP."""
+        file_path = os.path.abspath(os.path.join(os.getcwd(), local_filename))
+        
+        if not os.path.exists(file_path):
+            return f"Error, file '{file_path}' not found"
+        
         data_socket = self.pasv_mode()
         if not data_socket:
             return "Error estableciendo modo PASV."
+        
         self.send_command(f'STOR {filename}')
         with open(local_filename, 'rb') as file:
             while True:
                 data = file.read(1024)
-                print(data)
                 if not data:
                     break
                 data_socket.sendall(data)
@@ -161,7 +168,7 @@ if __name__ == "__main__":
             elif command == 'cd':
                 print(ftp.change_directory(*args))
             elif command == 'pwd':
-                print(ftp.print_working_directory())
+                print(ftp.print_working_directory(*args))
             elif command == 'mkdir':
                 print(ftp.make_directory(*args))
             elif command == 'rd':
@@ -175,7 +182,7 @@ if __name__ == "__main__":
             elif command == 'upl':
                 print(ftp.store_file(*args))
             elif command == 'quit':
-                print(ftp.quit())
+                print(ftp.quit(*args))
                 break
             else:
                 print("Comando no reconocido. Por favor, inténtelo de nuevo.")
