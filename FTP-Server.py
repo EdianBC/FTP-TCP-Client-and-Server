@@ -8,11 +8,18 @@ class FTPServer:
         self.host = host
         self.port = port
         self.data_port = 0
+        
         self.users = {'user1': 'password1'}  # Añade tus usuarios y contraseñas aquí
-        self.root_dir = os.getcwd()
+        
+        self.storage_folder = 'FTP_Storage'
+        self.root_dir = os.path.join(os.getcwd(), self.storage_folder)
+        if not os.path.exists(self.root_dir):
+            os.makedirs(self.root_dir)
+        
         self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.control_socket.bind((self.host, self.port))
         self.control_socket.listen(5)
+        
         print(f'Servidor FTP iniciado en {self.host}:{self.port}')
 
     def handle_client(self, conn, addr):
@@ -61,7 +68,8 @@ class FTPServer:
 
 
                 elif command == 'PWD':
-                    conn.sendall(f'257 "{current_dir}"\r\n'.encode())
+                    relative_dir = os.path.relpath(current_dir, os.path.join(os.getcwd(), self.storage_folder))
+                    conn.sendall(f"257 '{relative_dir}'\r\n".encode())
 
 
                 elif command == 'LIST':    

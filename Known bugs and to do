@@ -1,7 +1,0 @@
-To do:
-Crear una carpeta FTP Storage para que no esten las cosas al berro
-Cambiar el current_dir en el server pa que no salgan las carpetas padre del ftp
-No permitir salir a las carpetas padre del ftp
-Que el ls te de mas datos como el peso de los archivos o si son carpetas
-
-Bugs:
