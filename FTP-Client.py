@@ -49,7 +49,7 @@ class FTPClient:
             print("PASV mode setup failed.")
             return None
 
-    def list_files(self, directory=".", verbose=False):
+    def list_files(self, directory="."):
         """Lista los archivos en el directorio especificado, devolviendo una lista con la distinción entre archivos y carpetas."""
         try:
             data_socket = self.pasv_mode()
@@ -64,28 +64,10 @@ class FTPClient:
                     break
                 data_response += data_part
             data_socket.close()
-            self.read_response()
+            print(self.read_response())
 
-            entries = data_response.strip().split('\r\n')
-            result = []
-            for entry in entries:
-                parts = entry.split(maxsplit=8)
-                if len(parts) > 8:
-                    entry_type = 'directory' if parts[0][0] == 'd' else 'file'
-                    name = parts[-1]
-                    result.append({'type': entry_type, 'name': name})
-
-            if verbose:
-                ret = ""
-                for entry in entries:
-                    parts = entry.split(maxsplit=8)
-                    if len(parts) > 8:
-                        entry_type = 'directory' if parts[0][0] == 'd' else 'file'
-                        name = parts[-1]
-                        ret += name
-                        ret += '\n'
-                return ret
-            return result
+            return data_response
+    
         except Exception as e:
             print(f"Error al listar archivos: {e}")
 
@@ -123,7 +105,8 @@ class FTPClient:
                     break
                 file.write(data)
         data_socket.close()
-        return "Archivo descargado exitosamente."
+        #print(self.read_response())
+        return self.read_response()
 
     def store_file(self, local_filename, filename):
         """Sube un archivo al servidor FTP."""
@@ -131,14 +114,22 @@ class FTPClient:
         if not data_socket:
             return "Error estableciendo modo PASV."
         self.send_command(f'STOR {filename}')
+        print('1')
         with open(local_filename, 'rb') as file:
             while True:
+                print('2')
                 data = file.read(1024)
+                print('3')
+                print(data)
                 if not data:
                     break
-                data_socket.send(data)
+                print('4')
+                data_socket.sendall(data)
+                print('5')
+
         data_socket.close()
-        return "Archivo subido exitosamente."
+        print('6')
+        return self.read_response()
 
     def print_working_directory(self):
         """Imprime el directorio de trabajo actual en el servidor FTP."""
@@ -154,7 +145,15 @@ class FTPClient:
 if __name__ == "__main__":
     ftp = FTPClient('127.0.0.1')
     print(ftp.connect())
-    print(ftp.login('user', 'password'))
+    print(ftp.login('user1', 'password1'))
+
+    # ftp = FTPClient('ftp.dlptest.com')
+    # print(ftp.connect())
+    # print(ftp.login('dlpuser', 'rNrKYTX9g7z3RgJRmxWuGHbeu'))
+
+    # ftp = FTPClient('test.rebex.net')
+    # print(ftp.connect())
+    # print(ftp.login('demo', 'password'))
 
     while True:
         try:
