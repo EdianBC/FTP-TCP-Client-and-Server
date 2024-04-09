@@ -2,6 +2,7 @@ import socket
 import re
 import os
 from termcolor import colored as col
+import shlex
 
 class FTPClient:
     def __init__(self, host, port=21):
@@ -38,6 +39,12 @@ class FTPClient:
     def pasv_mode(self):
         """Establece el modo PASV para la transferencia de datos."""
         response = self.send_command('PASV')
+        print(response)
+
+        if not response.startswith('227'):
+            print("PASV mode setup failed.")
+            return None
+        
         ip_port_pattern = re.compile(r'(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)')
         ip_port_match = ip_port_pattern.search(response)
         if ip_port_match:
@@ -61,6 +68,7 @@ class FTPClient:
         port_parts = [str(data_socket_port >> 8), str(data_socket_port & 0xFF)]
         port_command = f"{','.join(ip_parts)},{','.join(port_parts)}"
         response = self.send_command(f'PORT {port_command}')
+        print(response)
         if response.startswith('200'):
             return data_socket
         else:
@@ -320,11 +328,14 @@ if __name__ == "__main__":
         try:
             user_input = input(col("ftp>> ","blue"))
 
-            command_parts = user_input.strip().split(" ")
+            command_parts = shlex.split(user_input)
             command = command_parts[0].lower()
             args = command_parts[1:]
+            print(command_parts)
 
-            if command == 'ls':
+            if command == 'login':
+                print(ftp.login(*args))
+            elif command == 'ls':
                 print(ftp.list_files(*args))
             elif command == 'nls':
                 print(ftp.simple_list_files(*args))

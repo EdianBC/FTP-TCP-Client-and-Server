@@ -65,7 +65,7 @@ class FTPServer:
         if username in self.users:
             self.conn.sendall(b'331 User name okay, need password\r\n')
         else:
-            self.conn.sendall(b'530 User incorrect in\r\n')
+            self.conn.sendall(b'530 User incorrect\r\n')
 
     def PASS(self,username, password):
         if self.users.get(username) == password:
@@ -76,7 +76,10 @@ class FTPServer:
             return False
         
     def ACCT(self, account_information):
-        pass
+        """Implementacion del comando ACCT"""
+
+
+    
 
     def CWD(self, new_dir):
         if os.path.isdir(new_dir):
@@ -250,7 +253,7 @@ class FTPServer:
 
                 elif command == 'PASS':
                     password = data.split()[1]
-                    authenticated=self.PASS(username,password)
+                    authenticated = self.PASS(username,password)
 
                 elif not authenticated:
                     conn.sendall(b'530 Not logged in\r\n')
@@ -341,8 +344,6 @@ class FTPServer:
                         if data_conn:
                             data_conn.close()
                         
-
-
                 elif command == 'STOR':
                     filename = data.split()[1]
                     file_path = os.path.abspath(os.path.join(current_dir, filename))
