@@ -14,7 +14,7 @@ class FTPClient:
     def connect(self):
         """Conecta al servidor FTP."""
         self.control_socket.connect((self.host, self.port))
-        return self.read_response()
+        self.read_response()
 
     def read_response(self):
         """Lee la respuesta del servidor FTP."""
@@ -24,6 +24,7 @@ class FTPClient:
             response += part
             if response.endswith('\r\n') or len(part) < 1024:
                 break
+        print(response)
         return response
 
     def send_command(self, command):
@@ -33,29 +34,33 @@ class FTPClient:
 
     def login(self, username='anonymous', password='anonymous@'):
         """Autentica al usuario en el servidor FTP."""
-        print(self.send_command(f'USER {username}'))
-        return self.send_command(f'PASS {password}')
+        self.send_command(f'USER {username}')
+        self.send_command(f'PASS {password}')
 
     def pasv_mode(self):
         """Establece el modo PASV para la transferencia de datos."""
-        response = self.send_command('PASV')
-        print(response)
+        try:
+            response = self.send_command('PASV')
 
-        if not response.startswith('227'):
-            print("PASV mode setup failed.")
-            return None
-        
-        ip_port_pattern = re.compile(r'(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)')
-        ip_port_match = ip_port_pattern.search(response)
-        if ip_port_match:
-            ip_address = '.'.join(ip_port_match.groups()[:4])
-            port = (int(ip_port_match.group(5)) << 8) + \
-                int(ip_port_match.group(6))
-            data_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            data_socket.connect((ip_address, port))
-            return data_socket
-        else:
-            print("PASV mode setup failed.")
+            if not response.startswith('227'):
+                print("PASV mode setup failed.")
+                return None
+            
+            ip_port_pattern = re.compile(r'(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)')
+            ip_port_match = ip_port_pattern.search(response)
+            if ip_port_match:
+                ip_address = '.'.join(ip_port_match.groups()[:4])
+                port = (int(ip_port_match.group(5)) << 8) + \
+                    int(ip_port_match.group(6))
+                data_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                data_socket.settimeout(3)
+                data_socket.connect((ip_address, port))
+                return data_socket
+            else:
+                print("PASV mode setup failed.")
+                return None
+        except Exception as e:
+            print(f"Error en el modo PASV: {e}")
             return None
         
     def active_mode(self):
@@ -82,6 +87,7 @@ class FTPClient:
             if data_socket is None:
                 print("No se pudo establecer una conexión de datos.")
                 return
+            
             self.send_command(f'LIST {directory}')
             data_response = ""
             while True:
@@ -90,9 +96,9 @@ class FTPClient:
                     break
                 data_response += data_part
             data_socket.close()
-            print(self.read_response())
+            self.read_response()
 
-            return data_response
+            print(data_response)
     
         except Exception as e:
             print(f"Error al listar archivos: {e}")
@@ -112,217 +118,258 @@ class FTPClient:
                     break
                 data_response += data_part
             data_socket.close()
-            print(self.read_response())
+            self.read_response()
 
-            return data_response
+            print(data_response)
     
         except Exception as e:
             print(f"Error al listar archivos: {e}")
 
     def change_directory(self, path):
         """Cambia el directorio actual en el servidor FTP."""
-        return self.send_command(f'CWD {path}')
+        self.send_command(f'CWD {path}')
     
     def change_directory_up(self):
         """Cambia al directorio padre."""
-        return self.send_command('CDUP')
+        self.send_command('CDUP')
 
     def make_directory(self, dirname):
         """Crea un nuevo directorio en el servidor FTP."""
-        return self.send_command(f'MKD {dirname}')
+        self.send_command(f'MKD {dirname}')
 
     def remove_directory(self, dirname):
         """Elimina un directorio en el servidor FTP."""
-        return self.send_command(f'RMD {dirname}')
+        self.send_command(f'RMD {dirname}')
 
     def delete_file(self, filename):
         """Intenta eliminar un archivo."""
-        return self.send_command(f'DELE {filename}')
+        self.send_command(f'DELE {filename}')
 
     def rename_file(self, from_name, to_name):
         """Renombra un archivo en el servidor FTP."""
         self.send_command(f'RNFR {from_name}')
-        return self.send_command(f'RNTO {to_name}')
+        self.send_command(f'RNTO {to_name}')
 
     def retrieve_file(self, filename, local_filename=''):
         """Descarga un archivo del servidor FTP."""
-
         if not local_filename:
             local_filename = filename
-
-        data_socket = self.pasv_mode()
-        if not data_socket:
-            return "Error estableciendo modo PASV."
         
-        server_ans = self.send_command(f'RETR {filename}')
+        try:
+            data_socket = self.pasv_mode()
+            if not data_socket:
+                print("Error estableciendo modo PASV.")
+                return
+            
+            server_ans = self.send_command(f'RETR {filename}')
 
-        if server_ans.startswith('550'):
-            return f"Error, file '{filename}' not found."
+            if server_ans.startswith('550'):
+                print(f"Error, file '{filename}' not found.")
+                return
 
-        with open(local_filename, 'wb') as file:
-            while True:
-                data = data_socket.recv(1024)
-                if not data:
-                    break
-                file.write(data)
-        data_socket.close()
-        return self.read_response()
+            local_filename = os.path.join(os.getcwd(), 'Downloads', local_filename)
+            if not os.path.exists(os.path.join(os.getcwd(), 'Downloads')):
+                os.makedirs(os.path.join(os.getcwd(), 'Downloads'))
+
+            with open(local_filename, 'wb') as file:
+                while True:
+                    data = data_socket.recv(1024)
+                    if not data:
+                        break
+                    file.write(data)
+            data_socket.close()
+            self.read_response()
+        
+        except Exception as e:
+            print(f"Error al descargar archivo: {e}")
+
+        finally:
+            if data_socket:
+                data_socket.close()
 
     def store_file(self, local_filename, filename=''):
         """Sube un archivo al servidor FTP."""
         if not filename:
             filename = local_filename
 
-        file_path = os.path.abspath(os.path.join(os.getcwd(), local_filename))
+        try:
+            file_path = os.path.abspath(os.path.join(os.getcwd(), local_filename))
+            
+            if not os.path.exists(file_path):
+                print(f"Error, file '{file_path}' not found.")
+                return
+            
+            data_socket = self.pasv_mode()
+            if not data_socket:
+                print("Error estableciendo modo PASV.")
+            
+            self.send_command(f'STOR {filename}')
+            with open(local_filename, 'rb') as file:
+                while True:
+                    data = file.read(1024)
+                    if not data:
+                        break
+                    data_socket.sendall(data)
+            
+            self.read_response()
         
-        if not os.path.exists(file_path):
-            return f"Error, file '{file_path}' not found."
-        
-        data_socket = self.pasv_mode()
-        if not data_socket:
-            return "Error estableciendo modo PASV."
-        
-        self.send_command(f'STOR {filename}')
-        with open(local_filename, 'rb') as file:
-            while True:
-                data = file.read(1024)
-                if not data:
-                    break
-                data_socket.sendall(data)
-        
-        data_socket.close()
-        return self.read_response()
+        except Exception as e:
+            print(f"Error al subir archivo: {e}")
+
+        finally:
+            if data_socket:
+                data_socket.close()
     
     def store_unique_file(self, local_filename, filename=''):
         """Sube un archivo al servidor FTP con un nombre único."""
         if not filename:
             filename = local_filename
 
-        file_path = os.path.abspath(os.path.join(os.getcwd(), local_filename))
+        try:
+            file_path = os.path.abspath(os.path.join(os.getcwd(), local_filename))
+            
+            if not os.path.exists(file_path):
+                print(f"Error, file '{file_path}' not found.")
+                return
+            
+            data_socket = self.pasv_mode()
+            if not data_socket:
+                print("Error estableciendo modo PASV.")
+                return
+            
+            self.send_command(f'STOU {filename}')
+            with open(local_filename, 'rb') as file:
+                while True:
+                    data = file.read(1024)
+                    if not data:
+                        break
+                    data_socket.sendall(data)
+            
+            self.read_response()
         
-        if not os.path.exists(file_path):
-            return f"Error, file '{file_path}' not found."
-        
-        data_socket = self.pasv_mode()
-        if not data_socket:
-            return "Error estableciendo modo PASV."
-        
-        self.send_command(f'STOU {filename}')
-        with open(local_filename, 'rb') as file:
-            while True:
-                data = file.read(1024)
-                if not data:
-                    break
-                data_socket.sendall(data)
-        
-        data_socket.close()
-        return self.read_response()
+        except Exception as e:
+            print(f"Error al subir archivo: {e}")
+
+        finally:
+            if data_socket:
+                data_socket.close()
     
     def append_file(self, local_filename, filename=''):
         """Añade un archivo al servidor FTP."""
         if not filename:
             filename = local_filename
 
-        file_path = os.path.abspath(os.path.join(os.getcwd(), local_filename))
+        try:
+            file_path = os.path.abspath(os.path.join(os.getcwd(), local_filename))
+            
+            if not os.path.exists(file_path):
+                print(f"Error, file '{file_path}' not found.")
+                return
+            
+            data_socket = self.pasv_mode()
+            if not data_socket:
+                print("Error estableciendo modo PASV.")
+                return
+            
+            self.send_command(f'APPE {filename}')
+            with open(local_filename, 'rb') as file:
+                while True:
+                    data = file.read(1024)
+                    if not data:
+                        break
+                    data_socket.sendall(data)
         
-        if not os.path.exists(file_path):
-            return f"Error, file '{file_path}' not found."
+            self.read_response()
         
-        data_socket = self.pasv_mode()
-        if not data_socket:
-            return "Error estableciendo modo PASV."
+        except Exception as e:
+            print(f"Error al añadir archivo: {e}")
         
-        self.send_command(f'APPE {filename}')
-        with open(local_filename, 'rb') as file:
-            while True:
-                data = file.read(1024)
-                if not data:
-                    break
-                data_socket.sendall(data)
-        
-        data_socket.close()
-        return self.read_response()
+        finally:
+            if data_socket:
+                data_socket.close()
 
 
     def print_working_directory(self):
         """Imprime el directorio de trabajo actual en el servidor FTP."""
-        return self.send_command('PWD')
+        self.send_command('PWD')
     
     def system(self):
         """Devuelve el sistema operativo del servidor FTP."""
-        return self.send_command('SYST')
+        self.send_command('SYST')
     
     def help(self):
         """Devuelve la lista de comandos soportados por el servidor FTP."""
-        return self.send_command('HELP')
+        self.send_command('HELP')
+        self.read_response()
     
     def noop(self):
         """Comando NOOP."""
-        return self.send_command('NOOP')
+        self.send_command('NOOP')
     
     def status(self):
         """Devuelve el estado de la conexión con el servidor FTP."""
-        return self.send_command('STAT')
+        self.send_command('STAT')
+        self.read_response()
     
     def abort(self): #wtf asi y ya??
         """Aborta la transferencia de datos."""
-        return self.send_command('ABOR')
+        self.send_command('ABOR')
 
     def account_info(self, account_info): 
         """Envía la información de la cuenta al servidor FTP."""
-        return self.send_command(f'ACCT {account_info}')
+        self.send_command(f'ACCT {account_info}')
     
     def set_download_start_position(self, position):
         """Establece la posición de inicio para la descarga de archivos."""
-        return self.send_command(f'REST {position}')
+        self.send_command(f'REST {position}')
 
     def site_command(self, command):
         """Envía un comando SITE al servidor FTP."""
-        return self.send_command(f'SITE {command}')
+        self.send_command(f'SITE {command}')
     
     def allocate_space(self, bytes):
         """Reserva espacio en el servidor FTP."""
-        return self.send_command(f'ALLO {bytes}')
+        self.send_command(f'ALLO {bytes}')
     
-    def structure_mount(self, path):
+    def strcture_mount(self, path):
         """Monta una estructura en el servidor FTP."""
-        return self.send_command(f'STRU {path}')
+        self.send_command(f'SMNT {path}')
     
     def reinitialize(self):
         """Reinicia la conexión con el servidor FTP."""
-        return self.send_command('REIN')
+        self.send_command('REIN')
 
     def file_structure(self, structure):
         """Establece la estructura de un archivo."""
-        return self.send_command(f'STRU {structure}')
+        self.send_command(f'STRU {structure}')
     
     def transfer_mode(self, mode):
         """Establece el modo de transferencia."""
-        return self.send_command(f'MODE {mode}')
+        self.send_command(f'MODE {mode}')
     
     def file_type(self, type):
         """Establece el tipo de archivo."""
-        return self.send_command(f'TYPE {type}')
+        self.send_command(f'TYPE {type}')
 
     def quit(self):
         """Cierra la sesión y la conexión con el servidor FTP."""
-        response = self.send_command('QUIT')
+        self.send_command('QUIT')
         self.control_socket.close()
-        return response
+       
 
 
 if __name__ == "__main__":
     # ftp = FTPClient('127.0.0.1')
-    # print(ftp.connect())
-    # print(ftp.login('user1', 'password1'))
+    # ftp.connect()
+    # ftp.login('user1', 'password1')
 
     ftp = FTPClient('ftp.dlptest.com')
-    print(ftp.connect())
-    print(ftp.login('dlpuser', 'rNrKYTX9g7z3RgJRmxWuGHbeu'))
+    ftp.connect()
+    ftp.login('dlpuser', 'rNrKYTX9g7z3RgJRmxWuGHbeu')
 
     # ftp = FTPClient('test.rebex.net')
-    # print(ftp.connect())
-    # print(ftp.login('demo', 'password'))
+    # ftp.connect()
+    # ftp.login('demo', 'password')
 
     while True:
         try:
@@ -334,63 +381,63 @@ if __name__ == "__main__":
             print(command_parts)
 
             if command == 'login':
-                print(ftp.login(*args))
+                ftp.login(*args)
             elif command == 'ls':
-                print(ftp.list_files(*args))
+                ftp.list_files(*args)
             elif command == 'nls':
-                print(ftp.simple_list_files(*args))
+                ftp.simple_list_files(*args)
             elif command == 'cd':
-                print(ftp.change_directory(*args))
+                ftp.change_directory(*args)
             elif command == 'cdup':
-                print(ftp.change_directory_up(*args))
+                ftp.change_directory_up(*args)
             elif command == 'pwd':
-                print(ftp.print_working_directory(*args))
+                ftp.print_working_directory(*args)
             elif command == 'mkdir':
-                print(ftp.make_directory(*args))
+                ftp.make_directory(*args)
             elif command == 'rd':
-                print(ftp.remove_directory(*args))
+                ftp.remove_directory(*args)
             elif command == 'rf':
-                print(ftp.delete_file(*args))
+                ftp.delete_file(*args)
             elif command == 'rename':
-                print(ftp.rename_file(*args))
+                ftp.rename_file(*args)
             elif command == 'dow':
-                print(ftp.retrieve_file(*args))
+                ftp.retrieve_file(*args)
             elif command == 'upl':
-                print(ftp.store_file(*args))
+                ftp.store_file(*args)
             elif command == 'uplu':
-                print(ftp.store_unique_file(*args))
+                ftp.store_unique_file(*args)
             elif command == 'app':
-                print(ftp.append_file(*args))
+                ftp.append_file(*args)
             elif command == 'sys':
-                print(ftp.system(*args))
+                ftp.system(*args)
             elif command == 'help':
-                print(ftp.help(*args))
+                ftp.help(*args)
             elif command == 'noop':
-                print(ftp.noop(*args))
+                ftp.noop(*args)
             elif command == 'stat':
-                print(ftp.status(*args))
+                ftp.status(*args)
             elif command == 'abort':
-                print(ftp.abort(*args))
+                ftp.abort(*args)
             elif command == 'acct':
-                print(ftp.account_info(*args))
+                ftp.account_info(*args)
             elif command == 'rest':
-                print(ftp.set_download_start_position(*args))
+                ftp.set_download_start_position(*args)
             elif command == 'site':
-                print(ftp.site_command(*args))
+                ftp.site_command(*args)
             elif command == 'allo':
-                print(ftp.allocate_space(*args))
+                ftp.allocate_space(*args)
             elif command == 'stru':
-                print(ftp.structure_mount(*args))
+                ftp.structure_mount(*args)
             elif command == 'rein':
-                print(ftp.reinitialize(*args))
+                ftp.reinitialize(*args)
             elif command == 'stru':
-                print(ftp.file_structure(*args))
+                ftp.file_structure(*args)
             elif command == 'mode':
-                print(ftp.transfer_mode(*args))
+                ftp.transfer_mode(*args)
             elif command == 'type':
-                print(ftp.file_type(*args))
+                ftp.file_type(*args)
             elif command == 'quit':
-                print(ftp.quit(*args))
+                ftp.quit(*args)
                 break
             else:
                 print(col("Comando no reconocido. Por favor, inténtelo de nuevo.","red"))

@@ -1,23 +1,21 @@
 ## To do:
 - No permitir salir a las carpetas padre del ftp
 - Que el ls te de mas datos como el peso de los archivos o si son carpetas (server)
-- Hacer un login de verdad
-- Probar todos los comandos
 - Hacer una funcion general de subir archivo 
 - Hacer que los metodos puedan elegir si usar el modo activo o pasivo
 - ABOR compatibility
 
 Comandos del server:
-USER
-PASS
+USER *
+PASS *
 ACCT
-CWD
+CWD  *
 CDUP
 SMNT
-QUIT
+QUIT *
 REIN
 PORT
-PASV
+PASV *
 TYPE
 STRU
 MODE
@@ -33,9 +31,9 @@ ABOR
 DELE
 RMD
 MKD
-PWD
-LIST
-NLST
+PWD  *
+LIST *
+NLST *
 SITE
 SYST
 STAT
