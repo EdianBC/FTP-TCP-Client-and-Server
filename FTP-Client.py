@@ -292,7 +292,6 @@ class FTPClient:
             print(col(f"Error al añadir archivo: {e}", "red"))
 
 
-
     def print_working_directory(self):
         """Imprime el directorio de trabajo actual en el servidor FTP."""
         self.send_command('PWD')
@@ -304,12 +303,9 @@ class FTPClient:
     def help(self, command=''):
         """Devuelve la lista de comandos soportados por el servidor FTP."""
         self.send_command(f'HELP {command}')
-        print('a')
         # Leer todas las líneas de la respuesta
         while True:
             response = self.read_response()
-            print('a')
-            # Si la respuesta comienza con '2', es la última línea de la respuesta
             if '214' in response:
                 break
     
@@ -370,13 +366,13 @@ class FTPClient:
 
 
 if __name__ == "__main__":
-    # ftp = FTPClient('127.0.0.1')
-    # ftp.connect()
-    # ftp.login('user1', 'password1')
-
-    ftp = FTPClient('ftp.dlptest.com')
+    ftp = FTPClient('127.0.0.1')
     ftp.connect()
-    ftp.login('dlpuser', 'rNrKYTX9g7z3RgJRmxWuGHbeu')
+    ftp.login('user1', 'password1')
+
+    # ftp = FTPClient('ftp.dlptest.com')
+    # ftp.connect()
+    # ftp.login('dlpuser', 'rNrKYTX9g7z3RgJRmxWuGHbeu')
 
     # ftp = FTPClient('test.rebex.net')
     # ftp.connect()

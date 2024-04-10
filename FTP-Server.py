@@ -3,6 +3,8 @@ import os
 import threading
 import stat
 import time
+import platform
+import uuid
 
 class FTPServer:
     def __init__(self, host='', port=21):
@@ -11,6 +13,11 @@ class FTPServer:
         self.data_port = 0
         
         self.users = {'user1': 'password1'}  
+
+        self.data_type = 'ASCII'
+        self.restart_point = 0
+        self.structure_type = 'File'
+        self.mode = 'Stream'
         
         self.storage_folder = 'FTP_Storage'
         self.root_dir = os.path.join(os.getcwd(), self.storage_folder)
@@ -72,10 +79,21 @@ class FTPServer:
                         conn.sendall(b'425 Can not open data connection\r\n')
                         print(f'Error entering passive mode: {e}')
 
+                elif command == 'PORT':
+                    try:
+                        data = data.split()[1].split(',')
+                        host = '.'.join(data[:4])
+                        port = int(data[4]) * 256 + int(data[5])
+                        self.data_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        self.data_socket.connect((host, port))
+                        conn.sendall(b'200 PORT command successful\r\n')
+                    except Exception as e:
+                        conn.sendall(b'425 Can not open data connection\r\n')
+                        print(f'Error opening data connection: {e}')
+
                 elif command == 'PWD':
                     relative_dir = os.path.relpath(current_dir, os.path.join(os.getcwd(), self.storage_folder))
                     conn.sendall(f"257 '{relative_dir}'\r\n".encode())
-
 
                 elif command == 'LIST':
                     try:
@@ -202,8 +220,7 @@ class FTPServer:
                     file_path = os.path.abspath(os.path.join(current_dir, filename))
 
                     if not os.path.exists(file_path):
-                        #conn.sendall(b'550 Failed to retrieve file.\r\n')
-                        #conn.sendall(b'550 Failed to retrieve file.\r\n')
+                        conn.sendall(b'550 File not found.\r\n')
                         print(f"Error: File '{file_path}' not found")
                         continue
                     
@@ -211,11 +228,18 @@ class FTPServer:
                         conn.sendall(b'150 File status okay; about to open data connection.\r\n')
                         data_conn, _ = self.data_socket.accept()
 
-                        with open(file_path, 'rb') as file:
+                        # Open the file in binary mode for binary data type, and text mode for ASCII
+                        mode = 'rb' if self.data_type == 'Binary' else 'r'
+                        with open(file_path, mode) as file:
+                            file.seek(self.restart_point)
+                            self.restart_point = 0
+
                             while True:
                                 down_data = file.read(1024)
                                 if not down_data:
                                     break
+                                if self.data_type == 'ASCII':
+                                    down_data = down_data.encode()
                                 data_conn.sendall(down_data)
                                 
                         data_conn.close()
@@ -226,8 +250,6 @@ class FTPServer:
                         print(f'Error retrieving file: {e}')
                         if data_conn:
                             data_conn.close()
-                        
-
 
                 elif command == 'STOR':
                     filename = data.split()[1]
@@ -237,11 +259,17 @@ class FTPServer:
                         conn.sendall(b'150 File status okay; about to open data connection.\r\n')
                         data_conn, _ = self.data_socket.accept()
 
-                        with open(file_path, 'wb') as file:
+                        mode = 'wb' if self.data_type == 'Binary' else 'w'
+                        with open(file_path, mode) as file:
+                            file.seek(self.restart_point)
+                            self.restart_point = 0
+
                             while True:
                                 up_data = data_conn.recv(1024)
                                 if not up_data:
                                     break
+                                if self.data_type == 'ASCII':
+                                    up_data = up_data.decode()
                                 file.write(up_data)
 
                         data_conn.close()
@@ -252,14 +280,157 @@ class FTPServer:
                         print(f'Error storing file: {e}')
                         if data_conn:
                             data_conn.close()
+
+                elif command == 'STOU':
+                    base_filename = data.split()[1]
+                    unique_filename = f"{base_filename}_{str(uuid.uuid4())}"
+                    file_path = os.path.abspath(os.path.join(current_dir, unique_filename))
+
+                    try:
+                        conn.sendall(b'150 File status okay; about to open data connection.\r\n')
+                        data_conn, _ = self.data_socket.accept()
+
+                        mode = 'wb' if self.data_type == 'Binary' else 'w'
+                        with open(file_path, mode) as file:
+                            file.seek(self.restart_point)
+                            self.restart_point = 0
+
+                            while True:
+                                up_data = data_conn.recv(1024)
+                                if not up_data:
+                                    break
+                                if self.data_type == 'ASCII':
+                                    up_data = up_data.decode()
+                                file.write(up_data)
+
+                        data_conn.close()
+                        response = f'226 Transfer complete. Unique filename: {unique_filename}\r\n'
+                        conn.sendall(response.encode())
+
+                    except Exception as e:
+                        conn.sendall(b'550 Failed to store file.\r\n')
+                        print(f'Error storing file: {e}')
+                        if data_conn:
+                            data_conn.close()
+
+                elif command == 'APPE':
+                    filename = data.split()[1]
+                    file_path = os.path.abspath(os.path.join(current_dir, filename))
+
+                    try:
+                        conn.sendall(b'150 File status okay; about to open data connection.\r\n')
+                        data_conn, _ = self.data_socket.accept()
+
+                        # Open the file in append mode
+                        mode = 'ab' if self.data_type == 'Binary' else 'a'
+                        with open(file_path, mode) as file:
+                            while True:
+                                up_data = data_conn.recv(1024)
+                                if not up_data:
+                                    break
+                                if self.data_type == 'ASCII':
+                                    up_data = up_data.decode()
+                                file.write(up_data)
+
+                        data_conn.close()
+                        conn.sendall(b'226 Transfer complete.\r\n')
+
+                    except Exception as e:
+                        conn.sendall(b'550 Failed to append to file.\r\n')
+                        print(f'Error appending to file: {e}')
+                        if data_conn:
+                            data_conn.close()
+
+                elif command == 'ABOR':
+                    #Not implemented
+                    conn.sendall(b'502 Command not implemented\r\n')
+
+                elif command == 'ALLO':
+                    conn.sendall(b'202 No storage allocation necessary.\r\n')
+
+                elif command == 'REST':
+                    self.restart_point = int(data.split()[1])
+                    response = f'350 Restarting at {self.restart_point}. Send STORE or RETRIEVE to initiate transfer.\r\n'
+                    conn.sendall(response.encode())
+
+                elif command == 'REIN':
+                    authenticated = False
+                    username = ''
+                    self.data_type = 'ASCII'
+                    self.restart_point = 0
+                    self.structure_type = 'File'
+                    self.mode = 'Stream'
+                    conn.sendall(b'220 Service ready for new user.\r\n')
                     
+                elif command == 'HELP':
+                    conn.sendall(b'214-The following commands are recognized.\r\n')
+                    conn.sendall(b'USER PASS PASV PWD LIST NLST CWD MKD RMD DELE RNFR RNTO RETR STOR TYPE NOOP SYST STAT HELP QUIT\r\n')
+                    conn.sendall(b'214 Help OK.\r\n')
 
+                elif command == 'NOOP':
+                    conn.sendall(b'200 OK\r\n')
+ 
+                elif command == 'SYST':
+                    system_name = platform.system()
+                    response = f'215 {system_name} Type: L8\r\n'
+                    conn.sendall(response.encode())
 
+                elif command == 'STAT':
+                    response = '211-FTP Server Status\r\n'
+                    response += f'Current directory: {current_dir}\r\n'
+                    response += 'Connected to server\r\n'
+                    response += '211 End of status\r\n'
+                    conn.sendall(response.encode())
+
+                elif command == 'ACCT':
+                    response = '211-Account Status\r\n'
+                    response += f'Name: {username}\r\n'
+                    response += f'Password: {self.users[username]}\r\n'
+                    response += '211 End of account status\r\n'
+                    conn.sendall(response.encode())
+
+                elif command == 'TYPE':
+                    data_type = data.split()[1]
+                    if data_type == 'A':
+                        self.data_type = 'ASCII'
+                        conn.sendall(b'200 Type set to ASCII.\r\n')
+                    elif data_type == 'I':
+                        self.data_type = 'Binary'
+                        conn.sendall(b'200 Type set to Binary.\r\n')
+                    else:
+                        conn.sendall(b'504 Type not implemented.\r\n')
+
+                elif command == 'SMNT':
+                    conn.sendall(b'202 Structure mount not implemented.\r\n')
+
+                elif command == 'STRU':
+                    structure_type = data.split()[1]
+                    if structure_type == 'F':
+                        self.structure_type = 'File'
+                        conn.sendall(b'200 File structure set to F.\r\n')
+                    elif structure_type == 'R':
+                        conn.sendall(b'504 Record structure not implemented.\r\n')
+                    elif structure_type == 'P':
+                        conn.sendall(b'504 Page structure not implemented.\r\n')
+                    else:
+                        conn.sendall(b'504 Structure not implemented.\r\n')
+
+                elif command == 'MODE':
+                    mode_type = data.split()[1]
+                    if mode_type == 'S':
+                        self.mode = 'Stream'
+                        conn.sendall(b'200 Mode set to S.\r\n')
+                    elif mode_type == 'B':
+                        conn.sendall(b'504 Block mode not implemented.\r\n')
+                    elif mode_type == 'C':
+                        conn.sendall(b'504 Compressed mode not implemented.\r\n')
+                    else:
+                        conn.sendall(b'504 Mode not implemented.\r\n')
+                    
                 elif command == 'QUIT':
                     conn.sendall(b'221 Goodbye\r\n')
                     break
                 
-
                 else:
                     conn.sendall(b'502 Command not implemented\r\n')
             
