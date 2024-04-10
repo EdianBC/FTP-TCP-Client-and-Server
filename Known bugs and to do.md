@@ -33,7 +33,7 @@ MKD  * *
 PWD  * *
 LIST * *
 NLST * *
-SITE *
+SITE * *
 SYST * *
 STAT * *
 HELP * *

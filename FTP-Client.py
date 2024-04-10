@@ -13,7 +13,7 @@ class FTPClient:
         self.control_socket.settimeout(3)
     
         self.restart_point = 0
-        self.file_type = 'ASCII'
+        self.data_type = 'ASCII'
 
     def connect(self):
         """Conecta al servidor FTP."""
@@ -41,10 +41,14 @@ class FTPClient:
         self.control_socket.sendall(f"{command}\r\n".encode())
         return self.read_response()
 
-    def login(self, username='anonymous', password='anonymous@'):
+    def login(self, username, password):
         """Autentica al usuario en el servidor FTP."""
-        self.send_command(f'USER {username}')
-        self.send_command(f'PASS {password}')
+        try :
+            self.send_command('USER ' + username)
+            self.send_command('PASS ' + password)
+        except Exception as e:
+            print(col(f"Error al iniciar sesión: {e}", "red"))
+            self.read_response()
 
     def pasv_mode(self):
         """Establece el modo PASV para la transferencia de datos."""
@@ -314,7 +318,11 @@ class FTPClient:
     
     def help(self, command=''):
         """Devuelve la lista de comandos soportados por el servidor FTP."""
-        self.send_command(f'HELP {command}')
+        response = self.send_command(f'HELP {command}')
+
+        if response.count('214') == 2:
+            return
+
         # Leer todas las líneas de la respuesta
         while True:
             response = self.read_response()
@@ -327,7 +335,12 @@ class FTPClient:
     
     def status(self):
         """Devuelve el estado de la conexión con el servidor FTP."""
-        self.send_command(f'STAT {command}')
+        response = self.send_command(f'STAT {command}')
+
+        # If '211' is twice in response then return
+        if response.count('211') == 2:
+            return
+
         # Leer todas las líneas de la respuesta
         while True:
             response = self.read_response()
@@ -344,7 +357,6 @@ class FTPClient:
     
     def set_transfer_start_position(self, position):
         """Establece la posición de inicio para la descarga de archivos."""
-        #le asigna la posición de inicio a la variable restart_point como un entero
         self.restart_point = int(position)
         self.send_command(f'REST {position}')
 
@@ -377,9 +389,9 @@ class FTPClient:
         """Establece el tipo de archivo."""
         self.send_command(f'TYPE {type}')
         if type == 'I':
-            self.file_type = 'BINARY'
+            self.data_type = 'BINARY'
         elif type == 'A':
-            self.file_type = 'ASCII'
+            self.data_type = 'ASCII'
         
 
     def quit(self):
@@ -390,17 +402,18 @@ class FTPClient:
 
 
 if __name__ == "__main__":
-    ftp = FTPClient('127.0.0.1')
-    ftp.connect()
-    ftp.login('user1', 'password1')
 
-    # ftp = FTPClient('ftp.dlptest.com')
-    # ftp.connect()
-    # ftp.login('dlpuser', 'rNrKYTX9g7z3RgJRmxWuGHbeu')
+    while True:
+        print(col("FTP CLient v1.0","blue"))
+        print("Servidores FTP de prueba:\nftp.dlptest.com ('dlpuser' 'rNrKYTX9g7z3RgJRmxWuGHbeu')\ntest.rebex.net ('demo' 'password')")
+        ftp_host = input(col("Ingrese la dirección del servidor FTP: ","blue"))
+        try:
+            ftp = FTPClient(ftp_host)
+            ftp.connect()
+            break
+        except Exception as e:
+            print(col(f"Error: {e}","red"))
 
-    # ftp = FTPClient('test.rebex.net')
-    # ftp.connect()
-    # ftp.login('demo', 'password')
 
     while True:
         try:

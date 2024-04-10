@@ -342,7 +342,6 @@ class FTPServer:
                             data_conn.close()
 
                 elif command == 'ABOR':
-                    #Not implemented
                     conn.sendall(b'502 Command not implemented\r\n')
 
                 elif command == 'ALLO':
