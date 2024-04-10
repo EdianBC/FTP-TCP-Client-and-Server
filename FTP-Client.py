@@ -24,7 +24,12 @@ class FTPClient:
             response += part
             if response.endswith('\r\n') or len(part) < 1024:
                 break
-        print(response)
+
+        if response.startswith('4') or response.startswith('5'):
+            print(col(response, "red"))
+        else:
+            print(col(response, "green"))
+        
         return response
 
     def send_command(self, command):
@@ -43,7 +48,7 @@ class FTPClient:
             response = self.send_command('PASV')
 
             if not response.startswith('227'):
-                print("PASV mode setup failed.")
+                print(col("PASV mode setup failed.", "red"))
                 return None
             
             ip_port_pattern = re.compile(r'(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)')
@@ -57,10 +62,10 @@ class FTPClient:
                 data_socket.connect((ip_address, port))
                 return data_socket
             else:
-                print("PASV mode setup failed.")
+                print(col("PASV mode setup failed.", "red"))
                 return None
         except Exception as e:
-            print(f"Error en el modo PASV: {e}")
+            print(col(f"Error en el modo PASV: {e}", "red"))
             return None
         
     def active_mode(self):
@@ -85,7 +90,7 @@ class FTPClient:
         try:
             data_socket = self.pasv_mode()
             if data_socket is None:
-                print("No se pudo establecer una conexión de datos.")
+                print(col("No se pudo establecer una conexión de datos.","red"))
                 return
             
             self.send_command(f'LIST {directory}')
@@ -108,7 +113,7 @@ class FTPClient:
         try:
             data_socket = self.pasv_mode()
             if data_socket is None:
-                print("No se pudo establecer una conexión de datos.")
+                print(col("No se pudo establecer una conexión de datos.","red"))
                 return
             self.send_command(f'NLST {directory}')
             data_response = ""
@@ -123,7 +128,7 @@ class FTPClient:
             print(data_response)
     
         except Exception as e:
-            print(f"Error al listar archivos: {e}")
+            print(col(f"Error al listar archivos: {e}", "red"))
 
     def change_directory(self, path):
         """Cambia el directorio actual en el servidor FTP."""
@@ -158,13 +163,13 @@ class FTPClient:
         try:
             data_socket = self.pasv_mode()
             if not data_socket:
-                print("Error estableciendo modo PASV.")
+                print(col("Error estableciendo modo PASV.","red"))
                 return
             
             server_ans = self.send_command(f'RETR {filename}')
 
             if server_ans.startswith('550'):
-                print(f"Error, file '{filename}' not found.")
+                print(col(f"Error, file '{filename}' not found.","red"))
                 return
 
             local_filename = os.path.join(os.getcwd(), 'Downloads', local_filename)
@@ -181,7 +186,7 @@ class FTPClient:
             self.read_response()
         
         except Exception as e:
-            print(f"Error al descargar archivo: {e}")
+            print(col(f"Error al descargar archivo: {e}", "red"))
 
         finally:
             if data_socket:
@@ -196,7 +201,7 @@ class FTPClient:
             file_path = os.path.abspath(os.path.join(os.getcwd(), local_filename))
             
             if not os.path.exists(file_path):
-                print(f"Error, file '{file_path}' not found.")
+                print(col(f"Error, file '{file_path}' not found.","red"))
                 return
             
             data_socket = self.pasv_mode()
@@ -205,20 +210,21 @@ class FTPClient:
             
             self.send_command(f'STOR {filename}')
             with open(local_filename, 'rb') as file:
+                print('Subiendo archivo...')
                 while True:
                     data = file.read(1024)
                     if not data:
                         break
                     data_socket.sendall(data)
             
+            data_socket.close()
             self.read_response()
         
         except Exception as e:
-            print(f"Error al subir archivo: {e}")
-
-        finally:
+            print(col(f"Error al subir archivo: {e}", "red"))
             if data_socket:
                 data_socket.close()
+
     
     def store_unique_file(self, local_filename, filename=''):
         """Sube un archivo al servidor FTP con un nombre único."""
@@ -229,12 +235,12 @@ class FTPClient:
             file_path = os.path.abspath(os.path.join(os.getcwd(), local_filename))
             
             if not os.path.exists(file_path):
-                print(f"Error, file '{file_path}' not found.")
+                print(col(f"Error, file '{file_path}' not found.","red"))
                 return
             
             data_socket = self.pasv_mode()
             if not data_socket:
-                print("Error estableciendo modo PASV.")
+                print(col("Error estableciendo modo PASV.","red"))
                 return
             
             self.send_command(f'STOU {filename}')
@@ -245,14 +251,14 @@ class FTPClient:
                         break
                     data_socket.sendall(data)
             
+            data_socket.close()
             self.read_response()
         
         except Exception as e:
-            print(f"Error al subir archivo: {e}")
-
-        finally:
+            print(col(f"Error al subir archivo: {e}", "red"))
             if data_socket:
                 data_socket.close()
+
     
     def append_file(self, local_filename, filename=''):
         """Añade un archivo al servidor FTP."""
@@ -263,12 +269,12 @@ class FTPClient:
             file_path = os.path.abspath(os.path.join(os.getcwd(), local_filename))
             
             if not os.path.exists(file_path):
-                print(f"Error, file '{file_path}' not found.")
+                print(col(f"Error, file '{file_path}' not found.","red"))
                 return
             
             data_socket = self.pasv_mode()
             if not data_socket:
-                print("Error estableciendo modo PASV.")
+                print(col("Error estableciendo modo PASV.","red"))
                 return
             
             self.send_command(f'APPE {filename}')
@@ -279,14 +285,12 @@ class FTPClient:
                         break
                     data_socket.sendall(data)
         
+            data_socket.close()
             self.read_response()
         
         except Exception as e:
-            print(f"Error al añadir archivo: {e}")
-        
-        finally:
-            if data_socket:
-                data_socket.close()
+            print(col(f"Error al añadir archivo: {e}", "red"))
+
 
 
     def print_working_directory(self):
@@ -297,10 +301,17 @@ class FTPClient:
         """Devuelve el sistema operativo del servidor FTP."""
         self.send_command('SYST')
     
-    def help(self):
+    def help(self, command=''):
         """Devuelve la lista de comandos soportados por el servidor FTP."""
-        self.send_command('HELP')
-        self.read_response()
+        self.send_command(f'HELP {command}')
+        print('a')
+        # Leer todas las líneas de la respuesta
+        while True:
+            response = self.read_response()
+            print('a')
+            # Si la respuesta comienza con '2', es la última línea de la respuesta
+            if '214' in response:
+                break
     
     def noop(self):
         """Comando NOOP."""
@@ -331,7 +342,7 @@ class FTPClient:
         """Reserva espacio en el servidor FTP."""
         self.send_command(f'ALLO {bytes}')
     
-    def strcture_mount(self, path):
+    def structure_mount(self, path):
         """Monta una estructura en el servidor FTP."""
         self.send_command(f'SMNT {path}')
     
@@ -426,7 +437,7 @@ if __name__ == "__main__":
                 ftp.site_command(*args)
             elif command == 'allo':
                 ftp.allocate_space(*args)
-            elif command == 'stru':
+            elif command == 'smnt':
                 ftp.structure_mount(*args)
             elif command == 'rein':
                 ftp.reinitialize(*args)
