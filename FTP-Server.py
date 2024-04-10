@@ -5,6 +5,7 @@ import stat
 import time
 import platform
 import uuid
+import shutil
 
 class FTPServer:
     def __init__(self, host='', port=21):
@@ -155,6 +156,9 @@ class FTPServer:
                     else:
                         conn.sendall(b'550 Failed to change directory.\r\n')
 
+                elif command == 'CDUP':
+                    current_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
+                    conn.sendall(b'200 Directory changed to parent directory.\r\n')
 
                 elif command == 'MKD':
                     dirname = data.split()[1]
@@ -261,9 +265,7 @@ class FTPServer:
 
                         mode = 'wb' if self.data_type == 'Binary' else 'w'
                         with open(file_path, mode) as file:
-                            file.seek(self.restart_point)
-                            self.restart_point = 0
-
+                            
                             while True:
                                 up_data = data_conn.recv(1024)
                                 if not up_data:
@@ -292,9 +294,7 @@ class FTPServer:
 
                         mode = 'wb' if self.data_type == 'Binary' else 'w'
                         with open(file_path, mode) as file:
-                            file.seek(self.restart_point)
-                            self.restart_point = 0
-
+                            
                             while True:
                                 up_data = data_conn.recv(1024)
                                 if not up_data:
@@ -427,6 +427,21 @@ class FTPServer:
                     else:
                         conn.sendall(b'504 Mode not implemented.\r\n')
                     
+                elif command == 'SITE':
+                    site_command = data.split()[1]
+                    if site_command == 'RFR':
+                        folder_path = data.split()[2]
+                        folder_path = os.path.abspath(os.path.join(current_dir, folder_path))
+
+                        try:
+                            shutil.rmtree(folder_path)
+                            conn.sendall(b'250 Folder deleted successfully.\r\n')
+                        except Exception as e:
+                            conn.sendall(b'550 Failed to delete folder.\r\n')
+                            print(f'Error deleting folder: {e}')
+                    else:
+                        conn.sendall(b'504 Command not implemented.\r\n')
+
                 elif command == 'QUIT':
                     conn.sendall(b'221 Goodbye\r\n')
                     break

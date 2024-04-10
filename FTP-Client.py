@@ -5,11 +5,15 @@ from termcolor import colored as col
 import shlex
 
 class FTPClient:
+    """Clase para interactuar con un servidor FTP."""
     def __init__(self, host, port=21):
         self.host = host
         self.port = port
         self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.control_socket.settimeout(3)
+    
+        self.restart_point = 0
+        self.file_type = 'ASCII'
 
     def connect(self):
         """Conecta al servidor FTP."""
@@ -210,6 +214,10 @@ class FTPClient:
             
             self.send_command(f'STOR {filename}')
             with open(local_filename, 'rb') as file:
+                #Debe empezar a leer desde el restart_point
+                file.seek(self.restart_point)
+                self.restart_point = 0
+
                 print('Subiendo archivo...')
                 while True:
                     data = file.read(1024)
@@ -245,6 +253,8 @@ class FTPClient:
             
             self.send_command(f'STOU {filename}')
             with open(local_filename, 'rb') as file:
+                file.seek(self.restart_point)
+                self.restart_point = 0
                 while True:
                     data = file.read(1024)
                     if not data:
@@ -279,6 +289,8 @@ class FTPClient:
             
             self.send_command(f'APPE {filename}')
             with open(local_filename, 'rb') as file:
+                file.seek(self.restart_point)
+                self.restart_point = 0
                 while True:
                     data = file.read(1024)
                     if not data:
@@ -315,8 +327,12 @@ class FTPClient:
     
     def status(self):
         """Devuelve el estado de la conexión con el servidor FTP."""
-        self.send_command('STAT')
-        self.read_response()
+        self.send_command(f'STAT {command}')
+        # Leer todas las líneas de la respuesta
+        while True:
+            response = self.read_response()
+            if '211' in response:
+                break
     
     def abort(self): #wtf asi y ya??
         """Aborta la transferencia de datos."""
@@ -326,8 +342,10 @@ class FTPClient:
         """Envía la información de la cuenta al servidor FTP."""
         self.send_command(f'ACCT {account_info}')
     
-    def set_download_start_position(self, position):
+    def set_transfer_start_position(self, position):
         """Establece la posición de inicio para la descarga de archivos."""
+        #le asigna la posición de inicio a la variable restart_point como un entero
+        self.restart_point = int(position)
         self.send_command(f'REST {position}')
 
     def site_command(self, command):
@@ -344,6 +362,7 @@ class FTPClient:
     
     def reinitialize(self):
         """Reinicia la conexión con el servidor FTP."""
+        self.restart_point = 0
         self.send_command('REIN')
 
     def file_structure(self, structure):
@@ -357,6 +376,11 @@ class FTPClient:
     def file_type(self, type):
         """Establece el tipo de archivo."""
         self.send_command(f'TYPE {type}')
+        if type == 'I':
+            self.file_type = 'BINARY'
+        elif type == 'A':
+            self.file_type = 'ASCII'
+        
 
     def quit(self):
         """Cierra la sesión y la conexión con el servidor FTP."""
@@ -428,7 +452,7 @@ if __name__ == "__main__":
             elif command == 'acct':
                 ftp.account_info(*args)
             elif command == 'rest':
-                ftp.set_download_start_position(*args)
+                ftp.set_transfer_start_position(*args)
             elif command == 'site':
                 ftp.site_command(*args)
             elif command == 'allo':
